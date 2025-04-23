@@ -13,13 +13,17 @@ router = APIRouter()
 #     }
 
 @router.post("/search", response_model=JobResponse)
-def find_jobs(request: JobRequest):
+async def find_jobs(request: JobRequest):
     # jobs = scrape_indeed_jobs(request.position, request.location)
     # return {
     #     "relevant_jobs": jobs
     # }
 
-    jobs = scrape_rozee_jobs(request.position, request.location)
-    return {
-        "relevant_jobs": jobs
-    }
+    # jobs = scrape_rozee_jobs(request.position, request.location)
+    # return {
+    #     "relevant_jobs": jobs
+    # }
+
+    criteria = JobRequest(**request.model_dump())
+    relevant_jobs = await scrape_rozee_jobs(criteria)
+    return relevant_jobs
