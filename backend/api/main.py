@@ -1,16 +1,7 @@
 from fastapi import FastAPI
-from backend.schemas.job_request import JobRequest
-
+from backend.routers import jobfinder, health
 
 app = FastAPI()
 
-@app.get("/healthz")
-def check_health():
-    return {"status": "ok"}
-
-@app.post("/find-jobs")
-def find_jobs(request: JobRequest):
-    return {
-        "message": "Job search initiated",
-        "criteria": request.model_dump()
-    }
+app.include_router(health.router)
+app.include_router(jobfinder.router, prefix="/jobfinder", tags=["jobfinder"])
