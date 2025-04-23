@@ -1,15 +1,12 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from backend.schemas.job_request import JobRequest
+
 
 app = FastAPI()
 
-class JobRequest(BaseModel):
-    position: str
-    experience: str
-    salary: str
-    jobNature: str
-    location: str
-    skills: str
+@app.get("/healthz")
+def check_health():
+    return {"status": "ok"}
 
 @app.post("/find-jobs")
 def find_jobs(request: JobRequest):
