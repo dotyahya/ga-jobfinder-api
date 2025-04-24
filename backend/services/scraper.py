@@ -56,18 +56,20 @@ async def scrape_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
                 scraped_job_listings.append({
                     "job_title": job.get("job_title", "N/A"),
                     "company": job.get("employer_name", "N/A"),
-                    "experience": job.get("experience", "N/A"),
-                    "description": job.get("description", "N/A"),
-                    "jobNature": job.get("job_type", "N/A"),
-                    "location": job.get("location", "N/A"),
-                    "salary": job.get("salary", "N/A"),
-                    "apply_link": job.get("apply_link", "N/A")
+                    "experience": job.get("job_experience", "N/A"),
+                    "description": job.get("job_description", "N/A"),
+                    "jobNature": "remote" if job.get("job_is_remote") is True else "onsite",
+                    "location": job.get("job_location", "N/A"),
+                    "salary": f"{job.get('job_salary', 'N/A')}" if job.get("job_salary") else "N/A",
+                    "apply_link": job.get("job_apply_link", "N/A")
                 })
 
             # append rozee jobs to scraped jobs listings
             scraped_job_listings.extend(jobs_rozee["relevant_jobs"])
 
             print(scraped_job_listings)
+
+            relevant_jobs = await filter_relevant_jobs(criteria, scraped_job_listings)
 
 
             # for job_id in job_ids:
@@ -81,7 +83,7 @@ async def scrape_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
             #     print(data)
 
             return {
-                "relevant_jobs": scraped_job_listings
+                "relevant_jobs": relevant_jobs
             }
 
         except Exception as e:
