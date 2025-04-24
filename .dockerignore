@@ -1,0 +1,4 @@
+frontend/
+api-test.ipynb
+.env
+.gitignore
