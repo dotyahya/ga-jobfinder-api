@@ -5,7 +5,20 @@ from bs4 import BeautifulSoup
 
 from backend.schemas.job_request import JobRequest
 from backend.services.relevance import filter_relevant_jobs
+from backend.services.utils import get_jobs
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+# rapid api key
+RAPID_API_KEY = os.environ.get("RAPID_API_KEY")
+if not RAPID_API_KEY:
+    raise ValueError("RAPID_API_KEY not found in environment variables.")
+
+else:
+    print("RapidAPI key loaded successfully.")
 
 
 # mimic browser headers to avoid bot detection
@@ -17,47 +30,68 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,lt;q=0.8,et;q=0.7,de;q=0.6",
 }
 
-# def scrape_indeed_jobs(position, location):
-#     # if location has comma or "Pakistan" then remove it
-#     if "," in location or "Pakistan" in location:
-#         location = location.split(",")[0].strip()
 
-#     position = position.lower()
+async def scrape_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
+    # job_ids = get_linkedin_job_ids(criteria.position, criteria.location)
 
-#     base_url = "https://pk.indeed.com/jobs"
-#     params = {
-#         "q": position,
-#         "l": location,
-#     }
+    # base_url = "https://jsearch.p.rapidapi.com/job-details"
 
-#     response = httpx.get(base_url, params=params, headers=HEADERS)
-#     print(f"Scraping URL: {response.url}")
-#     print("Response:", response)
+    # headers = {
+    #     "x-rapidapi-key": RAPID_API_KEY,
+    #     "x-rapidapi-host": "jsearch.p.rapidapi.com"
+    # }
 
-#     soup = BeautifulSoup(response.text, "html.parser")
-#     job_cards = soup.select("div.job_seen_beacon")
-    
-#     results = []
-#     for card in job_cards[:10]:  # limit to top 10 results
-#         title = card.find("h2", class_="jobTitle")
-#         company = card.find("span", class_="companyName")
-#         location_tag = card.find("div", class_="companyLocation")
-#         link_tag = card.find("a", href=True)
+    # scrape jobs from rozee.pk
+    jobs_rozee = await scrape_rozee_jobs(criteria)
 
-#         if title and company and location_tag and link_tag:
-#             results.append({
-#                 "job_title": title.text.strip(),
-#                 "company": company.text.strip(),
-#                 "experience": "N/A",
-#                 "jobNature": "N/A",
-#                 "location": location_tag.text.strip(),
-#                 "salary": "N/A",
-#                 "apply_link": "https://pk.indeed.com" + link_tag['href']
-#             })
+    async with httpx.AsyncClient() as client:
+        try:
 
-#     return results
+            scraped_job_listings = []
+
+            jobs = get_jobs(criteria.position, criteria.location)
+            jobs_listing = jobs.json()
+
+            for job in jobs_listing.get("data", []):
+                scraped_job_listings.append({
+                    "job_title": job.get("job_title", "N/A"),
+                    "company": job.get("employer_name", "N/A"),
+                    "experience": job.get("experience", "N/A"),
+                    "description": job.get("description", "N/A"),
+                    "jobNature": job.get("job_type", "N/A"),
+                    "location": job.get("location", "N/A"),
+                    "salary": job.get("salary", "N/A"),
+                    "apply_link": job.get("apply_link", "N/A")
+                })
+
+            # append rozee jobs to scraped jobs listings
+            scraped_job_listings.extend(jobs_rozee["relevant_jobs"])
+
+            print(scraped_job_listings)
 
 
+            # for job_id in job_ids:
+            #     querystring = {
+            #         "job_id": job_id
+            #     }
+            #     response = await client.get(base_url, params=querystring, headers=headers)
+            #     content = response.content
+
+            #     data = json.loads(content.decode("utf-8"))
+            #     print(data)
+
+            return {
+                "relevant_jobs": scraped_job_listings
+            }
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {
+                "relevant_jobs": []
+            }
+
+
+# Rozee.pk 
 async def scrape_rozee_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
     # if location has Islamabad the set as 1180, Karachi as 1184, Lahore as 1185, Peshawar as 1188
     if "Islamabad" in criteria.location:
@@ -88,7 +122,7 @@ async def scrape_rozee_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
             scraped_job_listings = []
             for job in jobs[:10]:  # Limit to first 10 jobs
                 description_raw = job.get("description_raw", "N/A")
-                # remove any tags from description_raw such as <li>
+                # remove any tags from description_raw such as <li>, but is this necessary?
                 if description_raw:
                     description_raw = BeautifulSoup(description_raw, "html.parser").get_text()
 
@@ -96,20 +130,21 @@ async def scrape_rozee_jobs(criteria: JobRequest) -> dict[str, list[dict]]:
                     "job_title": job.get("title", "N/A"),
                     "company": job.get("company", "N/A"),
                     "experience": job.get("experience_text", "N/A"),
-                    "description": job.get("description_raw", "N/A"),
+                    "description": f"{description_raw}" if description_raw else "N/A",
                     "jobNature": job.get("type", "N/A"),
                     "location": ", ".join(job.get("city_exact", [location_id])),
                     "salary": f"{job.get('salaryN_exact', 'N/A')} - {job.get('salaryT_exact', 'N/A')} {job.get('currency_unit', '')}".strip(),
                     "apply_link": f"https://www.rozee.pk/{job.get('rozeePermaLink', '')}"
                 })
 
+            # TODO: remove this after moving logic to get_jobs()
             # filter relevant jobs based on criteria using gpt-4o-mini
-            relevant_jobs = await filter_relevant_jobs(criteria, scraped_job_listings)
+            # relevant_jobs = await filter_relevant_jobs(criteria, scraped_job_listings)
 
             # remove duplicates based on title and company
             seen = set()
             unique_results = []
-            for job in relevant_jobs:
+            for job in scraped_job_listings:
                 identifier = (job["job_title"], job["company"])
                 if identifier not in seen:
                     seen.add(identifier)

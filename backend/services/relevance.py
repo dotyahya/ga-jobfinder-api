@@ -18,7 +18,9 @@ else:
 
 async def compute_relevance_score(criteria: JobRequest, job: JobRelevance) -> float:
     prompt = f"""
-        You are a job relevance evaluator. Given the job criteria and job details below, compute a relevance score from 0 to 1, where 1 is a perfect match. Consider:
+        You are a job relevance evaluator. Given the job criteria and job details below, compute a relevance score from 0 to 1, where 1 is a perfect match. 
+        
+        Consider:
         - Semantic similarity between the position and job title.
         - Compatibility of experience levels (e.g., "6 years" vs. "5-7 years", "Fresher" vs. "0-1 year").
         - Overlap between the salary range (e.g., "70,000 PKR to 120,000 PKR") and job salary.

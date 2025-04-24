@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from backend.schemas.job_request import JobRequest
 from backend.schemas.job_response import JobResponse
-from backend.services.scraper import scrape_rozee_jobs
+from backend.services.scraper import scrape_rozee_jobs, scrape_jobs
 
 router = APIRouter()
 
@@ -25,5 +25,6 @@ async def find_jobs(request: JobRequest):
     # }
 
     criteria = JobRequest(**request.model_dump())
-    relevant_jobs = await scrape_rozee_jobs(criteria)
+    # relevant_jobs = await scrape_rozee_jobs(criteria)
+    relevant_jobs = await scrape_jobs(criteria)
     return relevant_jobs
