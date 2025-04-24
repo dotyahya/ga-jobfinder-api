@@ -7,3 +7,5 @@ openai==1.75.0
 beautifulsoup4==4.13.4
 httpx==0.28.1
 brotli==1.1.0 # for decompression of brotli-encoded responses
+redis==3.5.3
+slowapi==0.1.9
